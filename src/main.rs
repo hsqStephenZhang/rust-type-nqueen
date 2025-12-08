@@ -169,6 +169,43 @@ impl List for Nil {}
 
 impl<H, T: List> List for Cons<H, T> {}
 
+// can be generalized, but i'm not intended to do that
+trait ToVec {
+    fn to_vec() -> Vec<usize>;
+}
+
+impl ToVec for Nil {
+    fn to_vec() -> Vec<usize> {
+        vec![]
+    }
+}
+
+impl<H: Val, T: List + ToVec> ToVec for Cons<H, T> {
+    fn to_vec() -> Vec<usize> {
+        let mut v = vec![H::VALUE];
+        v.extend(T::to_vec());
+        v
+    }
+}
+
+trait ToMatrix {
+    fn to_matrix() -> Vec<Vec<usize>>;
+}
+
+impl ToMatrix for Nil {
+    fn to_matrix() -> Vec<Vec<usize>> {
+        vec![]
+    }
+}
+
+impl<H: List + ToVec, T: List + ToMatrix> ToMatrix for Cons<H, T> {
+    fn to_matrix() -> Vec<Vec<usize>> {
+        let mut v = vec![H::to_vec()];
+        v.extend(T::to_matrix());
+        v
+    }
+}
+
 trait ListElementAt<Index: Nat> {
     type Output;
 }
@@ -208,7 +245,7 @@ where
     type Output = <<L as ListEq<R>>::Output as And<<Hl as NatEq<Hr>>::Output>>::Output;
 }
 
-trait Concat<Rhs: List> {
+trait Concat<Rhs> {
     type Output: List;
 }
 
@@ -217,7 +254,7 @@ impl<R: List> Concat<R> for Nil {
 }
 
 // Cons(h, l) ++ r = Cons(h, l ++ r)
-impl<H: Nat, L: List + Concat<R>, R: List> Concat<R> for Cons<H, L> {
+impl<H, L: List + Concat<R>, R: List> Concat<R> for Cons<H, L> {
     type Output = Cons<H, <L as Concat<R>>::Output>;
 }
 
@@ -243,21 +280,23 @@ impl Rev for Nil {
 }
 
 // rev(cons(h, t)) = concat(rev(t), cons(h, nil))
-impl<H: Nat, T: List + Rev> Rev for Cons<H, T>
+impl<H, T: List + Rev> Rev for Cons<H, T>
 where
     <T as Rev>::Output: Concat<Cons<H, Nil>>,
 {
     type Output = <<T as Rev>::Output as Concat<Cons<H, Nil>>>::Output;
 }
 
-trait Contains<T: Nat> {
+trait Contains<T> {
     type Output: Bool;
 }
 
-impl<T: Nat> Contains<T> for Nil {
+impl<T> Contains<T> for Nil {
     type Output = False;
 }
 
+// not a very general implementation for Contains
+// but enough for us
 impl<H: Nat + NatEq<T>, L: List + Contains<T>, T: Nat> Contains<T> for Cons<H, L>
 where
     <H as NatEq<T>>::Output: Or<<L as Contains<T>>::Output>,
@@ -350,46 +389,6 @@ impl<Then, Else> IfThenElse<Then, Else> for True {
 
 impl<Then, Else> IfThenElse<Then, Else> for False {
     type Output = Else;
-}
-
-// TODO: constaints for nqueen problem
-// 1. all row_i is not equal, or equally, list contains all numbers
-// 2. |row_i - row_j| != |i - j| for all i,j
-
-trait ToVec {
-    fn to_vec() -> Vec<usize>;
-}
-
-impl ToVec for Nil {
-    fn to_vec() -> Vec<usize> {
-        vec![]
-    }
-}
-
-impl<H: Val, T: List + ToVec> ToVec for Cons<H, T> {
-    fn to_vec() -> Vec<usize> {
-        let mut v = vec![H::VALUE];
-        v.extend(T::to_vec());
-        v
-    }
-}
-
-trait ToMatrix {
-    fn to_matrix() -> Vec<Vec<usize>>;
-}
-
-impl ToMatrix for Nil {
-    fn to_matrix() -> Vec<Vec<usize>> {
-        vec![]
-    }
-}
-
-impl<H: List + ToVec, T: List + ToMatrix> ToMatrix for Cons<H, T> {
-    fn to_matrix() -> Vec<Vec<usize>> {
-        let mut v = vec![H::to_vec()];
-        v.extend(T::to_matrix());
-        v
-    }
 }
 
 // N: base
@@ -578,53 +577,6 @@ where
 // }
 
 #[test]
-fn test_nextboard() {
-    type L0000 = Cons<N0, Cons<N0, Cons<N0, Cons<N0, Nil>>>>;
-    // [0, 0, 0, 0] -> [1, 0, 0, 0]
-    type L1000 = <L0000 as NextBoard<N4>>::Output;
-    // [1, 0, 0, 0] -> [2, 0, 0, 0]
-    type L2000 = <L1000 as NextBoard<N4>>::Output;
-    // [2, 0, 0, 0] -> [3, 0, 0, 0]
-    type L3000 = <L2000 as NextBoard<N4>>::Output;
-    // [3, 0, 0, 0] -> [0, 1, 0, 0]
-    type L0100 = <L3000 as NextBoard<N4>>::Output;
-    type L1100 = <L0100 as NextBoard<N4>>::Output;
-    println!("{:?}", L0000::to_vec());
-    println!("{:?}", L1000::to_vec());
-    println!("{:?}", L2000::to_vec());
-    println!("{:?}", L3000::to_vec());
-    println!("{:?}", L0100::to_vec());
-    println!("{:?}", L1100::to_vec());
-
-    type L2333 = Cons<N2, Cons<N3, Cons<N3, Cons<N3, Nil>>>>;
-    type L3333 = <L2333 as NextBoard<N4>>::Output;
-    type L0000Again = <L3333 as NextBoard<N4>>::Output;
-    println!("{:?}", L2333::to_vec());
-    println!("{:?}", L3333::to_vec());
-    println!("{:?}", L0000Again::to_vec());
-}
-
-#[test]
-fn test_nateq() {
-    type Res1 = <N2 as NatEq<N2>>::Output;
-    println!("{}", std::any::type_name::<Res1>());
-
-    type Res2 = <N1 as Add<N2>>::Output;
-    println!("{}", std::any::type_name::<Res2>());
-
-    type Res3 = <N2 as Mul<N3>>::Output;
-    println!("{}", std::any::type_name::<Res3>());
-}
-
-#[test]
-fn test_nat_lessthan() {
-    type Res1 = <N2 as NatLessThan<N3>>::Output;
-    type Res2 = <N4 as NatLessThan<N3>>::Output;
-    println!("{}", std::any::type_name::<Res1>());
-    println!("{}", std::any::type_name::<Res2>());
-}
-
-#[test]
 fn t2() {
     type L1 = Cons<N1, Cons<N2, Cons<N3, Nil>>>;
     type L2 = Cons<N1, Cons<N2, Cons<N4, Nil>>>;
@@ -676,6 +628,53 @@ fn t4() {
 
     type L5 = <L1 as Filter<IsNot<N3>>>::Output;
     println!("{}", std::any::type_name::<L5>());
+}
+
+#[test]
+fn test_nateq() {
+    type Res1 = <N2 as NatEq<N2>>::Output;
+    println!("{}", std::any::type_name::<Res1>());
+
+    type Res2 = <N1 as Add<N2>>::Output;
+    println!("{}", std::any::type_name::<Res2>());
+
+    type Res3 = <N2 as Mul<N3>>::Output;
+    println!("{}", std::any::type_name::<Res3>());
+}
+
+#[test]
+fn test_nat_lessthan() {
+    type Res1 = <N2 as NatLessThan<N3>>::Output;
+    type Res2 = <N4 as NatLessThan<N3>>::Output;
+    println!("{}", std::any::type_name::<Res1>());
+    println!("{}", std::any::type_name::<Res2>());
+}
+
+#[test]
+fn test_nextboard() {
+    type L0000 = Cons<N0, Cons<N0, Cons<N0, Cons<N0, Nil>>>>;
+    // [0, 0, 0, 0] -> [1, 0, 0, 0]
+    type L1000 = <L0000 as NextBoard<N4>>::Output;
+    // [1, 0, 0, 0] -> [2, 0, 0, 0]
+    type L2000 = <L1000 as NextBoard<N4>>::Output;
+    // [2, 0, 0, 0] -> [3, 0, 0, 0]
+    type L3000 = <L2000 as NextBoard<N4>>::Output;
+    // [3, 0, 0, 0] -> [0, 1, 0, 0]
+    type L0100 = <L3000 as NextBoard<N4>>::Output;
+    type L1100 = <L0100 as NextBoard<N4>>::Output;
+    println!("{:?}", L0000::to_vec());
+    println!("{:?}", L1000::to_vec());
+    println!("{:?}", L2000::to_vec());
+    println!("{:?}", L3000::to_vec());
+    println!("{:?}", L0100::to_vec());
+    println!("{:?}", L1100::to_vec());
+
+    type L2333 = Cons<N2, Cons<N3, Cons<N3, Cons<N3, Nil>>>>;
+    type L3333 = <L2333 as NextBoard<N4>>::Output;
+    type L0000Again = <L3333 as NextBoard<N4>>::Output;
+    println!("{:?}", L2333::to_vec());
+    println!("{:?}", L3333::to_vec());
+    println!("{:?}", L0000Again::to_vec());
 }
 
 fn main() {

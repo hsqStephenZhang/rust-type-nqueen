@@ -119,6 +119,25 @@ impl<L: Nat + Add<R>, R: Nat> Add<R> for Succ<L> {
     type Output = Succ<<L as Add<R>>::Output>;
 }
 
+trait AbsOfSub<R: Nat> {
+    type Output: Nat;
+}
+
+// Case 1: |0 - R| = R
+impl<R: Nat> AbsOfSub<R> for Zero {
+    type Output = R;
+}
+
+// Case 2: |Succ<L> - 0| = Succ<L>
+impl<L: Nat> AbsOfSub<Zero> for Succ<L> {
+    type Output = Succ<L>;
+}
+
+// Case 3: |Succ<L> - Succ<R>| = |L - R|
+impl<L: Nat + AbsOfSub<R>, R: Nat> AbsOfSub<Succ<R>> for Succ<L> {
+    type Output = <L as AbsOfSub<R>>::Output;
+}
+
 trait Mul<Rhs: Nat> {
     type Output: Nat;
 }
@@ -149,6 +168,22 @@ struct Cons<H, T: List>(PhantomData<(H, T)>);
 impl List for Nil {}
 
 impl<H, T: List> List for Cons<H, T> {}
+
+trait ListElementAt<Index: Nat> {
+    type Output;
+}
+
+impl<H, T> ListElementAt<Zero> for Cons<H, T>
+where
+    H: Nat,
+    T: List,
+{
+    type Output = H;
+}
+
+impl<H, T: List + ListElementAt<N>, N: Nat> ListElementAt<Succ<N>> for Cons<H, T> {
+    type Output = <T as ListElementAt<N>>::Output;
+}
 
 trait ListEq<R: List> {
     type Output: Bool;
@@ -271,6 +306,15 @@ where
     type Output = <<N as NatEq<V>>::Output as Not>::Output;
 }
 
+struct ListEqPred<L: List>(PhantomData<L>);
+
+impl<L: List, Cmp: List> Pred<Cmp> for ListEqPred<L>
+where
+    L: ListEq<Cmp>,
+{
+    type Output = <L as ListEq<Cmp>>::Output;
+}
+
 trait Filter<P>: List {
     type Output: List;
 }
@@ -279,7 +323,7 @@ impl<P> Filter<P> for Nil {
     type Output = Nil;
 }
 
-impl<P: Pred<H>, H: Nat, L: List + Filter<P>> Filter<P> for Cons<H, L>
+impl<P: Pred<H>, H, L: List + Filter<P>> Filter<P> for Cons<H, L>
 where
     <P as Pred<H>>::Output: IfThenElse<Cons<H, <L as Filter<P>>::Output>, <L as Filter<P>>::Output>,
     <<P as Pred<H>>::Output as IfThenElse<
@@ -423,12 +467,12 @@ impl<Board> AllBoardsN4 for Board
 where
     Board: NextBoard<N4>,
     // 计算 Next
-    <Board as NextBoard<N4>>::Output: ListEq<List0000>, 
+    <Board as NextBoard<N4>>::Output: ListEq<List0000>,
     // 将 (Next == StartState) 的结果传给 Helper
-    Board: AllBoardsHelper< <<Board as NextBoard<N4>>::Output as ListEq<List0000>>::Output >
+    Board: AllBoardsHelper<<<Board as NextBoard<N4>>::Output as ListEq<List0000>>::Output>,
 {
     type Output = <Board as AllBoardsHelper<
-        <<Board as NextBoard<N4>>::Output as ListEq<List0000>>::Output
+        <<Board as NextBoard<N4>>::Output as ListEq<List0000>>::Output,
     >>::Output;
 }
 
@@ -447,43 +491,91 @@ where
     type Output = Cons<Board, <<Board as NextBoard<N4>>::Output as AllBoardsN4>::Output>;
 }
 
-// generate range list from N-1 to 0 (inclusive)
-// test for more complicated cases of NextBoard, which could also be viewd as `Succ`
-mod range {
-    use super::*;
+// nqueen conditions
 
-    trait RangeToList {
-        type Output: List;
-    }
+struct ListUnique;
 
-    impl<N> RangeToList for Succ<N>
-    where
-        N: Nat + RangeToList,
-    {
-        type Output = Cons<N, <N as RangeToList>::Output>;
-    }
-
-    impl RangeToList for Zero {
-        type Output = Nil;
-    }
-
-    #[test]
-    fn test_range() {
-        type SolN4 = <N4 as RangeToList>::Output;
-        println!("{:?}", SolN4::to_vec());
-    }
+impl Pred<Nil> for ListUnique {
+    type Output = True;
 }
 
-trait Test<TTT> {
-    type Output;
-}
-
-impl<TTT> Test<TTT> for Nil
+impl<H, T> Pred<Cons<H, T>> for ListUnique
 where
-    TTT: Bool + IfThenElse<True, False>,
+    H: Nat,
+    T: List + Contains<H>,
+    <T as Contains<H>>::Output: Not,
+    ListUnique: Pred<T>,
+    <<T as Contains<H>>::Output as Not>::Output: And<<ListUnique as Pred<T>>::Output>,
 {
-    type Output = <TTT as IfThenElse<True, False>>::Output;
+    // cond: all elements are unique
+    // cond1: ! T.contains(H)
+    // cond2: ListUnique(T)
+    // type Output = <<T as Contains<H>>::Output as Not>::Output;
+    type Output = <<<T as Contains<H>>::Output as Not>::Output as And<
+        <ListUnique as Pred<T>>::Output,
+    >>::Output;
 }
+
+struct NqueenDiagonalCheck;
+
+impl Pred<Nil> for NqueenDiagonalCheck {
+    type Output = True;
+}
+
+impl<H, T> Pred<Cons<H, T>> for NqueenDiagonalCheck
+where
+    H: Nat,
+    T: List,
+    T: CheckDiagSafe<H, N1>,
+    NqueenDiagonalCheck: Pred<T>,
+    <T as CheckDiagSafe<H, N1>>::Output: And<<NqueenDiagonalCheck as Pred<T>>::Output>,
+{
+    type Output = <<T as CheckDiagSafe<H, N1>>::Output as And<
+        <NqueenDiagonalCheck as Pred<T>>::Output,
+    >>::Output;
+}
+
+trait CheckDiagSafe<TargetRow: Nat, Dist: Nat> {
+    type Output: Bool;
+}
+
+impl<TargetRow: Nat, Dist: Nat> CheckDiagSafe<TargetRow, Dist> for Nil {
+    type Output = True;
+}
+
+impl<H, T, TargetRow, Dist> CheckDiagSafe<TargetRow, Dist> for Cons<H, T>
+where
+    H: Nat,
+    TargetRow: Nat,
+    Dist: Nat,
+    T: List + CheckDiagSafe<TargetRow, Succ<Dist>>,
+    H: AbsOfSub<TargetRow>,
+    <H as AbsOfSub<TargetRow>>::Output: NatEq<Dist>,
+    <<H as AbsOfSub<TargetRow>>::Output as NatEq<Dist>>::Output: Not,
+    <<<H as AbsOfSub<TargetRow>>::Output as NatEq<Dist>>::Output as Not>::Output:
+        And<<T as CheckDiagSafe<TargetRow, Succ<Dist>>>::Output>,
+{
+    type Output =
+        <<<<H as AbsOfSub<TargetRow>>::Output as NatEq<Dist>>::Output as Not>::Output as And<
+            <T as CheckDiagSafe<TargetRow, Succ<Dist>>>::Output,
+        >>::Output;
+}
+
+// will overflow rustc's stack in `rustc_trait_selection`
+// struct SatisfyNqueen;
+
+// impl<Board> Pred<Board> for SatisfyNqueen
+// where
+//     Board: List,
+//     ListUnique: Pred<Board>,
+//     NqueenDiagonalCheck: Pred<Board>,
+// {
+//     // cond1: all elements are unique
+//     // cond2: all |vec[i] - vec[]| != |i - j|
+//     type Output = <<ListUnique as Pred<Board>>::Output as And<
+//         <NqueenDiagonalCheck as Pred<Board>>::Output,
+//     >>::Output;
+// }
 
 #[test]
 fn test_nextboard() {
@@ -510,25 +602,6 @@ fn test_nextboard() {
     println!("{:?}", L2333::to_vec());
     println!("{:?}", L3333::to_vec());
     println!("{:?}", L0000Again::to_vec());
-}
-
-#[test]
-fn test_all_boards() {
-    type L0000 = Cons<N0, Cons<N0, Cons<N0, Cons<N0, Nil>>>>;
-    type AllBoards = <L0000 as AllBoardsN4>::Output;
-    type CountBoards = <AllBoards as ListLen>::Output;
-
-    let matrix = AllBoards::to_matrix();
-    for row in matrix {
-        println!("{:?}", row);
-    }
-    println!("Total boards: {}", CountBoards::VALUE);
-
-    // let's filter some boards
-
-    // equal to [2,1,3,0]
-    // type L0123 = Cons<N0, Cons<N1, Cons<N2, Cons<N3, Nil>>>;
-    // type FilteredBoards = <AllBoards as Filter<ListEq<L0123>>>::Output;
 }
 
 #[test]
@@ -605,4 +678,34 @@ fn t4() {
     println!("{}", std::any::type_name::<L5>());
 }
 
-fn main() {}
+fn main() {
+    type L0000 = Cons<N0, Cons<N0, Cons<N0, Cons<N0, Nil>>>>;
+    type AllBoards = <L0000 as AllBoardsN4>::Output;
+    type CountBoards = <AllBoards as ListLen>::Output;
+
+    let matrix = AllBoards::to_matrix();
+    for row in matrix {
+        println!("{:?}", row);
+    }
+    println!("Total boards: {}", CountBoards::VALUE);
+    println!("---------------");
+    println!("");
+
+    type UniqueBoards = <AllBoards as Filter<ListUnique>>::Output;
+    println!("Unique Boards:");
+    let unique_matrix = UniqueBoards::to_matrix();
+    for row in unique_matrix {
+        println!("{:?}", row);
+    }
+    println!("---------------");
+    println!("");
+
+    type NqueenSolutions = <UniqueBoards as Filter<NqueenDiagonalCheck>>::Output;
+    println!("N-Queen Solutions:");
+    let nqueen_matrix = NqueenSolutions::to_matrix();
+    for row in nqueen_matrix {
+        println!("{:?}", row);
+    }
+    println!("---------------");
+    println!("");
+}

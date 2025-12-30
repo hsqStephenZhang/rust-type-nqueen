@@ -169,43 +169,6 @@ impl List for Nil {}
 
 impl<H, T: List> List for Cons<H, T> {}
 
-// can be generalized, but i'm not intended to do that
-trait ToVec {
-    fn to_vec() -> Vec<usize>;
-}
-
-impl ToVec for Nil {
-    fn to_vec() -> Vec<usize> {
-        vec![]
-    }
-}
-
-impl<H: Val, T: List + ToVec> ToVec for Cons<H, T> {
-    fn to_vec() -> Vec<usize> {
-        let mut v = vec![H::VALUE];
-        v.extend(T::to_vec());
-        v
-    }
-}
-
-trait ToMatrix {
-    fn to_matrix() -> Vec<Vec<usize>>;
-}
-
-impl ToMatrix for Nil {
-    fn to_matrix() -> Vec<Vec<usize>> {
-        vec![]
-    }
-}
-
-impl<H: List + ToVec, T: List + ToMatrix> ToMatrix for Cons<H, T> {
-    fn to_matrix() -> Vec<Vec<usize>> {
-        let mut v = vec![H::to_vec()];
-        v.extend(T::to_matrix());
-        v
-    }
-}
-
 trait ListElementAt<Index: Nat> {
     type Output;
 }
@@ -271,21 +234,21 @@ impl<H, T: List + ListLen> ListLen for Cons<H, T> {
 }
 
 // for fun
-trait Rev: List {
-    type Output: List;
-}
+// trait Rev: List {
+//     type Output: List;
+// }
 
-impl Rev for Nil {
-    type Output = Nil;
-}
+// impl Rev for Nil {
+//     type Output = Nil;
+// }
 
-// rev(cons(h, t)) = concat(rev(t), cons(h, nil))
-impl<H, T: List + Rev> Rev for Cons<H, T>
-where
-    <T as Rev>::Output: Concat<Cons<H, Nil>>,
-{
-    type Output = <<T as Rev>::Output as Concat<Cons<H, Nil>>>::Output;
-}
+// // rev(cons(h, t)) = concat(rev(t), cons(h, nil))
+// impl<H, T: List + Rev> Rev for Cons<H, T>
+// where
+//     <T as Rev>::Output: Concat<Cons<H, Nil>>,
+// {
+//     type Output = <<T as Rev>::Output as Concat<Cons<H, Nil>>>::Output;
+// }
 
 trait Contains<T> {
     type Output: Bool;
@@ -576,6 +539,50 @@ where
 //     >>::Output;
 // }
 
+mod fmt {
+
+    use super::*;
+
+    // can be generalized, but i'm not intended to do that
+    pub trait ToVec {
+        fn to_vec() -> Vec<usize>;
+    }
+
+    impl ToVec for Nil {
+        fn to_vec() -> Vec<usize> {
+            vec![]
+        }
+    }
+
+    impl<H: Val, T: List + ToVec> ToVec for Cons<H, T> {
+        fn to_vec() -> Vec<usize> {
+            let mut v = vec![H::VALUE];
+            v.extend(T::to_vec());
+            v
+        }
+    }
+
+    pub trait ToMatrix {
+        fn to_matrix() -> Vec<Vec<usize>>;
+    }
+
+    impl ToMatrix for Nil {
+        fn to_matrix() -> Vec<Vec<usize>> {
+            vec![]
+        }
+    }
+
+    impl<H: List + ToVec, T: List + ToMatrix> ToMatrix for Cons<H, T> {
+        fn to_matrix() -> Vec<Vec<usize>> {
+            let mut v = vec![H::to_vec()];
+            v.extend(T::to_matrix());
+            v
+        }
+    }
+}
+
+use fmt::{ToMatrix, ToVec};
+
 #[test]
 fn t2() {
     type L1 = Cons<N1, Cons<N2, Cons<N3, Nil>>>;
@@ -595,8 +602,8 @@ fn t2() {
     type L13Len = <L13 as ListLen>::Output;
     println!("{}", std::any::type_name::<L13Len>());
 
-    type Revl1 = <L1 as Rev>::Output;
-    println!("{}", std::any::type_name::<Revl1>());
+    // type Revl1 = <L1 as Rev>::Output;
+    // println!("{}", std::any::type_name::<Revl1>());
 
     type ContainsN1 = <L1 as Contains<N1>>::Output;
     type ContainsN2 = <L1 as Contains<N2>>::Output;
@@ -607,7 +614,7 @@ fn t2() {
 }
 
 #[test]
-fn t3() {
+fn test_bool() {
     type T1 = <True as IfThenElse<N1, N2>>::Output;
     type T2 = <False as IfThenElse<N1, N2>>::Output;
     println!("{}", std::any::type_name::<T1>());
@@ -615,7 +622,7 @@ fn t3() {
 }
 
 #[test]
-fn t4() {
+fn test_list() {
     type L1 = Cons<N0, Cons<N2, Cons<N3, Nil>>>;
     type L2 = <L1 as Filter<IsZero>>::Output;
     println!("{}", std::any::type_name::<L2>());
@@ -687,8 +694,7 @@ fn main() {
         println!("{:?}", row);
     }
     println!("Total boards: {}", CountBoards::VALUE);
-    println!("---------------");
-    println!("");
+    println!("---------------\n");
 
     type UniqueBoards = <AllBoards as Filter<ListUnique>>::Output;
     println!("Unique Boards:");
@@ -696,8 +702,7 @@ fn main() {
     for row in unique_matrix {
         println!("{:?}", row);
     }
-    println!("---------------");
-    println!("");
+    println!("---------------\n");
 
     type NqueenSolutions = <UniqueBoards as Filter<NqueenDiagonalCheck>>::Output;
     println!("N-Queen Solutions:");
@@ -705,6 +710,5 @@ fn main() {
     for row in nqueen_matrix {
         println!("{:?}", row);
     }
-    println!("---------------");
-    println!("");
+    println!("---------------\n");
 }

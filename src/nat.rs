@@ -65,7 +65,7 @@ impl<R: Nat> NatLessThan<Succ<R>> for Zero {
     type Output = True;
 }
 
-impl<R: Nat> NatLessThan<Zero> for Succ<R> {
+impl<L: Nat> NatLessThan<Zero> for Succ<L> {
     type Output = False;
 }
 

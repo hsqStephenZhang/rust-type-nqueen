@@ -185,3 +185,27 @@ fn test_contains() {
     println!("contains n2: {}", std::any::type_name::<ContainsN2>());
     println!("contains n5: {}", std::any::type_name::<NotContainsN5>());
 }
+
+#[test]
+fn test_concats() {
+    {
+        type L1 = Nil;
+        type L2 = Cons<N1, Cons<N2, Nil>>;
+        type L3 = <L1 as Concat<L2>>::Output;
+        println!("{:?}", L3::to_vec());
+    }
+
+    {
+        type L1 = Cons<N1, Cons<N2, Nil>>;
+        type L2 = Nil;
+        type L3 = <L1 as Concat<L2>>::Output;
+        println!("{:?}", L3::to_vec());
+    }
+
+    {
+        type L1 = Cons<N1, Cons<N2, Nil>>;
+        type L2 = Cons<N3, Cons<N4, Nil>>;
+        type L3 = <L1 as Concat<L2>>::Output;
+        println!("{:?}", L3::to_vec());
+    }
+}

@@ -1,3 +1,4 @@
+use rust_type_gyms::list;
 /// function signatures:
 ///   QuickSort: List -> List
 ///   Partition: Nat -> List -> (List, Nat, List)
@@ -98,27 +99,27 @@ fn test_partition() {
 
 fn main() {
     // 3
-    type L = Cons<N3, Nil>;
+    type L = list![N3];
     type Sorted = <L as QuickSort>::Output;
     println!("Original: {:?}", L::to_vec());
     println!("Sorted: {:?}", Sorted::to_vec());
 
     // 3, 1
-    type L2 = Cons<N3, Cons<N1, Nil>>;
+    type L2 = list![N3, N1];
     type Sorted2 = <L2 as QuickSort>::Output;
     println!("Original: {:?}", L2::to_vec());
     println!("Sorted: {:?}", Sorted2::to_vec());
     assert_eq!(Sorted2::to_vec(), vec![1, 3]);
 
     // 3, 4, 5, 2, 1
-    type L3 = Cons<N3, Cons<N4, Cons<N5, Cons<N2, Cons<N1, Nil>>>>>;
+    type L3 = list![N3, N4, N5, N2, N1];
     type Sorted3 = <L3 as QuickSort>::Output;
     println!("Original: {:?}", L3::to_vec());
     println!("Sorted: {:?}", Sorted3::to_vec());
     assert_eq!(Sorted3::to_vec(), vec![1, 2, 3, 4, 5]);
 
     // 8, 7, 6, 5, 4, 3, 2, 1
-    type L4 = Cons<N8, Cons<N7, Cons<N6, Cons<N5, Cons<N4, Cons<N3, Cons<N2, Cons<N1, Nil>>>>>>>>;
+    type L4 = list![N8, N7, N6, N5, N4, N3, N2, N1];
     type Sorted4 = <L4 as QuickSort>::Output;
     println!("Original: {:?}", L4::to_vec());
     println!("Sorted: {:?}", Sorted4::to_vec());
